@@ -1,0 +1,34 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "type": "dezog",
+            "request": "launch",
+			"name": "Z80 Debugger",
+			"remoteType": "zrcp",
+            "zrcp": {
+                "hostname": "localhost",
+                "port": 10000
+            },
+            "rootFolder": "${fileDirname}",
+            "sjasmplus": [
+              {
+                  "path": "${fileDirname}/${fileBasenameNoExtension}.lst",
+                  "useFiles": true,
+                  "mainFile": "${fileDirname}/${fileBasenameNoExtension}.z80"
+              }
+            ],
+            "disassemblerArgs": {
+                "esxdosRst": true
+            },
+            "load": "${fileDirname}/${fileBasenameNoExtension}.sna",
+            "skipInterrupt": false,
+            "startAutomatically": true,
+            "preLaunchTask": "sjasmplus"
+        }
+    ]
+}

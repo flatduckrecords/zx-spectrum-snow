@@ -1,0 +1,202 @@
+
+	DEVICE ZXSPECTRUM48
+	
+SCREEN		equ $4000
+ATTR		equ $5800
+ATEND		equ $5AFF
+ATBYTES		equ ATEND-ATTR
+START		equ ATTR-LENGTH
+SPRBYTES	equ pxend-flakes
+
+	org START
+
+flakes 
+	defb 0,1,0,1          ; flake 1.
+	defb 0,3,50,1          ; flake 2.
+	defb 0,5,90,1          ; flake 3.
+	defb 0,11,30,3          ; flake 4.
+	defb 0,15,0,1          ; flake 5.
+	defb 0,19,20,2          ; flake 6.
+	defb 0,22,14,1          ; flake 7.
+	defb 0,31,1,1          ; flake 8.
+pixels
+	defb 0,0,0,4          ; pixel 1.
+	defb 0,4,0,3          ; pixel 2.
+	defb 0,8,0,6          ; pixel 3.
+	defb 0,12,0,3         ; pixel 4.
+	defb 0,16,0,5          ; pixel 5.
+	defb 0,20,0,6          ; pixel 6.
+	defb 0,24,0,3          ; pixel 7.
+	defb 0,28,0,4          ; pixel 8.
+pxend
+
+	; Black border
+	xor a               ; quick way to load accumulator with zero.
+	call 8859           ; set permanent border colour.
+
+	; Black screen, bright white ink;
+	ld hl, ATTR
+	ld de, ATTR+1
+	ld bc, ATBYTES;-LENGTH
+	ld (hl), %01000111
+	ldir
+
+mloop	; Main loop
+
+	ld ix, flakes		; table of flak sprites
+	ld iy, pixels		; table of 1px flakes
+
+	; Loop: copy flake data into attribute space
+	ld hl, flakes
+	ld de, ATEND-SPRBYTES
+	ld bc, SPRBYTES
+	ldir
+
+
+	ld b,8		; number of sprites in table.
+eachfl	push bc
+
+	call proflk	; process flake sprite
+	call propx	; process pixel sprite
+
+	ld de,4		; 4 bytes per sprite.
+	add ix,de	; get next flake sprite in `ix`.
+	add iy,de	; get next pixel sprite in `iy`.
+
+	pop bc
+	djnz eachfl	; repeat for all sprites in the table.
+
+	halt
+	jr mloop
+
+proflk
+	; Erase the old sprite
+	ld hl,NullSprite
+	call DrawSprite
+
+	; Reposition the sprite
+	call MoveSpriteDown
+
+	; Redraw the sprite in its new location
+	ld hl,TestSprite
+	call DrawSprite
+	ret
+
+propx
+	xor a
+	call DrawPixel		;DrawPixel draws the bit pattern in `a`
+	call MovePixelDown
+	ld a, %00001000
+	call DrawPixel
+	ret
+
+MoveSpriteDown
+	ld a,(ix+2)		; y coord.
+	cp 120			; already at bottom of screen?
+	jr z,ResetSprite	; if yes - move segment to the top.
+	ld a,(ix+3)		; get downward movement rate
+	add (ix+2)		; add it to the current y-coord
+	ld (ix+2),a		; update the sprite's y-coord
+	ret
+
+MovePixelDown
+	ld a,(iy+2)
+	cp 120
+	jr z,ResetPixel
+	ld a,(iy+3)
+	add (iy+2)
+	ld (iy+2),a
+	ret
+
+ResetSprite
+       xor a
+       ld (ix+2),a
+       ret
+
+ResetPixel
+       xor a
+       ld (iy+2),a
+       ret
+
+DrawPixel
+	push af
+	ld a, (iy+1)
+	ld b, a
+	ld a, (iy+2)
+	ld c, a
+	call GetScreenPos
+	pop af
+	ld (de), a
+	ret
+
+DrawSprite
+	ld a,(ix+1)		
+	ld b,a			;Xpos (in bytes)
+	ld a,(ix+2)		
+	ld c,a			;Ypos (in pixels)
+	call GetScreenPos
+	call Sprite2Screen
+	ret
+
+Sprite2Screen
+	push ix
+	ld ixh,8			;Lines * bytes
+
+SpriteNextLine:
+		ld bc,1			;Bytes per line (Width)
+		push de
+		ldir 			;Copy BC bytes from HL to De	
+		pop de
+		call GetNextLine	;Scr Next Line (Alter DE to move down a line)
+
+		dec ixh
+		jr nz,SpriteNextLine	;Repeat for next line
+	pop ix
+	ret			;Finished Sprite2Screen
+	
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+	
+;	_0 _1 _0 Y7 Y6 Y2 Y1 Y0   Y5 Y4 Y3 X4 X3 X2 X1 X0
+
+;	; Input  BC= XY (x=bytes - so 32 across)
+;	; output DE= screen mem pos
+GetScreenPos:	;return memory pos in DE of screen co-ord B,C (X,Y)
+	ld a,c
+	and %00111000
+	rlca
+	rlca
+	or b
+	ld e,a
+	ld a,c
+	and %00000111
+	ld d,a
+	ld a,c
+	and %11000000
+	rrca
+	rrca
+	rrca
+	or d
+	or  $40			;$4000 screen base
+	ld d,a
+	ret
+
+GetNextLine:			;Move DE down one line
+	inc d
+	ld a,d
+	and   %00000111		;See if we're over the first 3rd
+	ret nz
+	ld a,e
+	add a,%00100000
+	ld e,a
+	ret c				;See if we're over the 2'nd 3rd
+	ld a,d
+	sub   %00001000
+	ld d,a
+	ret
+
+TestSprite	defb %00000000,%00010000,%01010100,%01111100,%00111000,%01010100,%01010100,%00000000 ; snowflake.
+NullSprite	defb %00000000,%00000000,%00000000,%00000000,%00000000,%00000000,%00000000,%00000000 ; snowflake.
+
+LENGTH		EQU $-START+1
+
+	SAVESNA "snow.sna", START
