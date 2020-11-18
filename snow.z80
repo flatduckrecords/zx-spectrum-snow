@@ -37,8 +37,23 @@ pxend
 	; Black screen, bright white ink;
 	ld hl, ATTR
 	ld de, ATTR+1
-	ld bc, ATBYTES;-LENGTH
+	ld bc, 32
+	ld (hl), %00000001
+	ldir
+	ld hl, ATTR+32
+	ld de, ATTR+33
+	ld bc, 32
+	ld (hl), %00000101
+	ldir
+	ld hl, ATTR+64
+	ld de, ATTR+65
+	ld bc, ATBYTES-64;-LENGTH
 	ld (hl), %01000111
+	ldir
+	ld hl, ATEND-287
+	ld de, ATEND-286
+	ld bc, 31
+	ld (hl), %00000001
 	ldir
 
 mloop	; Main loop

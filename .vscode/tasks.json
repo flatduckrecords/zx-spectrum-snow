@@ -10,7 +10,7 @@
             "args": [
 				"--lst=${fileDirname}/${fileBasenameNoExtension}.lst",
 				"--lstlab",
-				"--raw=out.bin",
+				"--raw=${fileDirname}/${fileBasenameNoExtension}.bin",
                 "${file}"                                   // File to compile
             ],
             "group": {
