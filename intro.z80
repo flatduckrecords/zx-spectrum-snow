@@ -5,32 +5,113 @@ SCREEN		equ $4000
 ATTR		equ $5800
 ATEND		equ $5AFF
 ATBYTES		equ ATEND-ATTR
-;START		equ ATTR-LENGTH
 START		equ $8000
+
 SPRBYTES	equ pxend-flakes
 
 	org START
 
-flakes 
-	defb 0,1,0,1          ; flake 1.
-	defb 0,3,50,1          ; flake 2.
-	defb 0,5,90,1          ; flake 3.
-	defb 0,11,30,3          ; flake 4.
-	defb 0,15,0,1          ; flake 5.
-	defb 0,19,20,2          ; flake 6.
-	defb 0,22,14,1          ; flake 7.
-	defb 0,31,1,1          ; flake 8.
-pixels
-	defb 0,0,0,4          ; pixel 1.
-	defb 0,4,0,3          ; pixel 2.
-	defb 0,8,0,6          ; pixel 3.
-	defb 0,12,0,3         ; pixel 4.
-	defb 0,16,0,5          ; pixel 5.
-	defb 0,20,0,6          ; pixel 6.
-	defb 0,24,0,3          ; pixel 7.
-	defb 0,28,0,4          ; pixel 8.
-pxend
+	xor a
+	out (254), a
 
+	xor a
+	ld (SCENE),a		; reset to Scene #00
+
+	ld hl, LOGO
+	ld de, SCREEN
+	ld bc, ATTR-SCREEN
+	ldir
+
+MLOOP
+	call SCANKB
+	ld a,(SCENE)
+	cp 0
+	jr z,MLOOP
+	jp SCENE01
+	ret
+
+
+SCANKB
+	ld bc,32766
+	in a,(c)
+	rra
+	;push af
+	call nc,SCENE00
+	;pop af
+	;rra
+	;push af
+	;call nc,SCENE01
+	;pop af
+	;rra
+	;push af
+	;call nc,mpd
+	;pop af
+	;rra
+	;call nc,mpu
+	RET
+
+SCENE00
+	call PEELOFF
+	ld hl,SCENE
+	inc (hl)
+	ret
+
+PEELOFF
+ATTRP		equ $5C8D
+BORDCR		equ $5C48
+		LD L,0
+NXTCOL		LD H,$40
+		LD B,1
+PAUSE		HALT
+		DJNZ PAUSE
+NXTBYTE		LD C,(HL)
+		LD (HL),0
+		LD B,8
+NXTROT		RR C
+		RLA
+		DJNZ NXTROT
+		INC HL
+		OR (HL)
+		LD (HL),A
+		LD DE,$001F
+		ADD HL,DE
+		LD A,H
+		CP $58
+		JR NZ,NXTBYTE
+		INC DE
+		LD B,$16
+		LD A,(ATTRP)
+NXTOP		LD (HL),A
+		ADD HL,DE
+		DJNZ NXTOP
+		LD A,(BORDCR)
+		LD (HL),A
+		ADD HL,DE
+		LD (HL),A
+		ADD HL,DE
+		INC L
+		LD A,L
+		CP $1F
+		JR NZ,NXTCOL
+		LD H,$40
+		LD B,$0C0
+NXTROW		LD (HL),D
+		ADD HL,DE
+		DJNZ NXTROW
+		LD A,(ATTRP)
+		LD B,$16
+NXTOP2		LD (HL),A
+		ADD HL,DE
+		DJNZ NXTOP2
+		LD A,(BORDCR)
+		LD (HL),A
+		ADD HL,DE
+		LD (HL),A
+		RET
+
+
+
+SCENE01
 	; Black border
 	xor a               ; quick way to load accumulator with zero.
 	call 8859           ; set permanent border colour.
@@ -57,7 +138,7 @@ pxend
 	ld (hl), %00000001
 	ldir
 
-mloop	; Main loop
+snowloop	; Main loop
 
 	ld ix, flakes		; table of flak sprites
 	ld iy, pixels		; table of 1px flakes
@@ -83,7 +164,14 @@ eachfl	push bc
 	djnz eachfl	; repeat for all sprites in the table.
 
 	halt
-	jr mloop
+
+	ld bc,32766	; check keayboard
+	in a,(c)
+	rra
+	;push af
+	jr c,snowloop
+	ret		; END (return to BASIC)
+
 
 proflk
 	; Erase the old sprite
@@ -212,8 +300,29 @@ GetNextLine:			;Move DE down one line
 
 TestSprite	defb %00000000,%00010000,%01010100,%01111100,%00111000,%01010100,%01010100,%00000000 ; snowflake.
 NullSprite	defb %00000000,%00000000,%00000000,%00000000,%00000000,%00000000,%00000000,%00000000 ; snowflake.
+flakes 
+	defb 0,1,0,1          ; flake 1.
+	defb 0,3,50,1          ; flake 2.
+	defb 0,5,90,1          ; flake 3.
+	defb 0,11,30,3          ; flake 4.
+	defb 0,15,0,1          ; flake 5.
+	defb 0,19,20,2          ; flake 6.
+	defb 0,22,14,1          ; flake 7.
+	defb 0,31,1,1          ; flake 8.
+pixels
+	defb 0,0,0,4          ; pixel 1.
+	defb 0,4,0,3          ; pixel 2.
+	defb 0,8,0,6          ; pixel 3.
+	defb 0,12,0,3         ; pixel 4.
+	defb 0,16,0,5          ; pixel 5.
+	defb 0,20,0,6          ; pixel 6.
+	defb 0,24,0,3          ; pixel 7.
+	defb 0,28,0,4          ; pixel 8.
+pxend
+SCENE		defb 0
+LOGO		INCBIN "snow.scr"
 
 LENGTH		EQU $-START+1
 
-	SAVESNA "snow.sna", START
-	SAVETAP "snow.tap", CODE, "bytes", START, LENGTH
+	SAVESNA "intro.sna", START
+	SAVETAP "intro.tap", CODE, "bytes", START, LENGTH
